@@ -69,5 +69,5 @@ For a detailed walkthrough of all features, please refer to the [User Guide (tut
 
 ## Contributing
 
-Feel free to contribute to this project with code or simple ideas.
+Feel free to contribute to this project with code or any idea.
 ```
