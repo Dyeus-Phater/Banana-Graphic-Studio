@@ -69,5 +69,5 @@ For a detailed walkthrough of all features, please refer to the [User Guide (tut
 
 ## Contributing
 
-Currently, direct contributions are not being actively solicited. However, if you have suggestions or find bugs, feel free to fork the repository and experiment, or raise an issue if issue tracking is enabled for this project.
+Feel free to contribute to this project with code or simple ideas.
 ```
