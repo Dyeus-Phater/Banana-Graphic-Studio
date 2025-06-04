@@ -1,0 +1,6 @@
+{
+  "name": "Copy of 🍌Banana Graphic Studio",
+  "description": "A web-based tool to edit graphics for ROMs by overlaying text using bitmap fonts. Features real-time preview, profile management, and AI-powered text generation to assist with creative content.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

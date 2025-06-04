@@ -1,0 +1,36 @@
+{
+  "profileName": "Default Profile",
+  "timestamp": "2025-05-30T23:17:03.055Z",
+  "fontConfig": {
+    "characterSequence": "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+    "tileWidth": 8,
+    "tileHeight": 8,
+    "offsetX": 0,
+    "offsetY": 0,
+    "separationX": 1,
+    "separationY": 1,
+    "baselineX": 0,
+    "baselineY": 0,
+    "charSpacing": 1,
+    "zoomFactor": 2,
+    "lineHeight": 10,
+    "positionX": 10,
+    "positionY": 10,
+    "scaleX": 1,
+    "scaleY": 1,
+    "horizontalAlignment": "left",
+    "verticalAlignment": "top"
+  },
+  "textModules": [
+    {
+      "id": 1,
+      "name": "Text Module 1",
+      "text": "Sample Text"
+    },
+    {
+      "id": 2,
+      "name": "Text Module 2",
+      "text": "Another Text"
+    }
+  ]
+}
