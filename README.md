@@ -1,7 +1,7 @@
 
 # 🍌Banana Graphic Studio
 
-Welcome to Banana Graphic Studio! This is a web-based tool designed for editing graphics, particularly for ROM hacking projects, by overlaying text using bitmap fonts or standard system fonts. It features a real-time preview, comprehensive profile management, AI-powered text generation, batch processing, and various text effects.
+Welcome to Banana Graphic Studio! This is a web-based tool designed for editing graphics, particularly for ROM hacking projects, by overlaying text using bitmap fonts or standard system fonts. It features a real-time preview, comprehensive profile management, batch processing, and various text effects.
 
 ## Features
 
