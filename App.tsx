@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import JSZip from 'jszip';
@@ -391,10 +392,10 @@ const App: React.FC = () => {
     }
 
     const originalTextModules = activeProfile.textModules;
-    const batchModules = originalTextModules.filter(m => m.isBatchMode && m.text.split('\n').filter(l => l.trim()).length > 0);
+    const batchModules = originalTextModules.filter(m => m.isBatchMode);
 
     if (batchModules.length === 0) {
-      // No batch modules, save single PNG
+      // SINGLE IMAGE SAVE LOGIC (no batch modules):
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = 'rom_graphic_preview.png';
@@ -405,7 +406,47 @@ const App: React.FC = () => {
       return;
     }
 
-    // Batch processing: save as ZIP
+    // BATCH PROCESSING (ZIP) LOGIC:
+    const batchModulesWithText = batchModules.filter(m => m.text && m.text.trim());
+    const batchLineSets = batchModulesWithText.map(m => m.text.split('\n'));
+    const maxLines = Math.max(0, ...batchLineSets.map(lines => lines.length));
+    
+    if (maxLines <= 1) {
+       // All batch modules have 0 or 1 line, treat as single save.
+       const modulesForSingleFrame = originalTextModules.map(tm => {
+        if (tm.isBatchMode) {
+          const firstLine = tm.text.split('\n')[0] ?? '';
+          return { ...tm, text: firstLine };
+        }
+        return tm;
+      });
+
+       // Temporarily set the state for rendering, save, then restore.
+      await new Promise<void>(resolve => {
+        flushSync(() => {
+          setActiveProfile(prev => ({ ...prev, textModules: modulesForSingleFrame }));
+        });
+        requestAnimationFrame(() => resolve());
+      });
+      
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = 'rom_graphic_preview.png';
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Restore original modules state
+      await new Promise<void>(resolve => {
+        flushSync(() => {
+          setActiveProfile(prev => ({ ...prev, textModules: originalTextModules }));
+        });
+        requestAnimationFrame(() => resolve());
+      });
+       return;
+    }
+
     const zip = new JSZip();
     const loadingAlert = document.createElement('div');
     loadingAlert.textContent = tApp.generatingBatchImages;
@@ -414,52 +455,39 @@ const App: React.FC = () => {
     loadingAlert.style.background = 'white';
     loadingAlert.style.border = '1px solid black';
     loadingAlert.style.zIndex = '1000';
-    loadingAlert.style.color = 'black'; // Explicitly set text color for contrast
+    loadingAlert.style.color = 'black';
     document.body.appendChild(loadingAlert);
 
-
     try {
-      for (const batchModule of batchModules) {
-        const lines = batchModule.text.split('\n').filter(l => l.trim());
-        for (let j = 0; j < lines.length; j++) {
-          const line = lines[j];
-          
-          const modulesForThisFrame = originalTextModules.map(tm => {
-            if (tm.id === batchModule.id) {
-              // For the active batch module, set its text to the current line and its preview index to 0
-              return { ...tm, text: line, currentBatchLineIndex: 0 };
-            }
-            if (tm.isBatchMode) {
-              // For other batch modules, keep their full text but set preview index to 0 (first line)
-              return { ...tm, text: tm.text, currentBatchLineIndex: 0 };
-            }
-            return tm; // Non-batch modules are unchanged
-          });
+      for (let i = 0; i < maxLines; i++) {
+        const modulesForThisFrame = originalTextModules.map(module => {
+          if (module.isBatchMode) {
+            const lines = module.text.split('\n');
+            const lineText = lines[i] !== undefined ? lines[i] : (lines.length > 0 ? lines[lines.length-1] : '');
+            return { ...module, text: lineText };
+          }
+          return module;
+        });
 
-          await new Promise<void>(resolve => {
-            flushSync(() => setActiveProfile(prev => ({ ...prev, textModules: modulesForThisFrame })));
-            // Wait for next frame to ensure canvas renders with the updated state
-            requestAnimationFrame(() => resolve());
+        await new Promise<void>(resolve => {
+          flushSync(() => {
+            setActiveProfile(prev => ({ ...prev, textModules: modulesForThisFrame }));
           });
+          requestAnimationFrame(() => resolve());
+        });
 
-          const dataUrl = canvas.toDataURL('image/png');
-          const filename = `${batchModule.name || `module_${batchModule.id}`}_${String(j + 1).padStart(2, '0')}.png`;
-          zip.file(filename, dataUrl.split(',')[1], { base64: true });
-        }
+        const dataUrl = canvas.toDataURL('image/png');
+        const filename = `frame_${String(i + 1).padStart(3, '0')}.png`;
+        zip.file(filename, dataUrl.split(',')[1], { base64: true });
       }
-
-      // Restore original text modules to activeProfile *after* all frames are processed
-      await new Promise<void>(resolve => {
-        flushSync(() => setActiveProfile(prev => ({ ...prev, textModules: originalTextModules })));
-         requestAnimationFrame(() => resolve()); // Ensure state update for UI consistency if needed
-      });
-
 
       const zipBlob = await zip.generateAsync({ type: "blob" });
       const link = document.createElement('a');
       link.download = 'rom_graphic_batch_preview.zip';
       link.href = URL.createObjectURL(zipBlob);
-      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
 
     } catch (error) {
@@ -467,17 +495,13 @@ const App: React.FC = () => {
         alert(tApp.batchProcessingError.replace('{error}', error instanceof Error ? error.message : String(error)));
     } finally {
         document.body.removeChild(loadingAlert);
-        // Ensure original text modules (with potentially different currentBatchLineIndex) are restored if loop exited early
-        let needsRestore = batchModules.length > 0;
-        if (needsRestore) {
-            // Check if activeProfile still needs restoration (it should have been restored already)
-            // This is more of a safeguard.
-            const currentModulesJson = JSON.stringify(activeProfile.textModules.map(m => ({...m, currentBatchLineIndex: m.currentBatchLineIndex ?? 0 })));
-            const originalModulesJson = JSON.stringify(originalTextModules.map(m => ({...m, currentBatchLineIndex: m.currentBatchLineIndex ?? 0 })));
-            if (currentModulesJson !== originalModulesJson) {
-                 flushSync(() => setActiveProfile(prev => ({ ...prev, textModules: originalTextModules })));
-            }
-        }
+        // Restore original modules state after the loop
+        await new Promise<void>(resolve => {
+            flushSync(() => {
+              setActiveProfile(prev => ({ ...prev, textModules: originalTextModules }));
+            });
+            requestAnimationFrame(() => resolve());
+        });
     }
   };
 
@@ -502,7 +526,7 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportProfile = (file: File) => {
+  const handleImportProfile = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -528,7 +552,20 @@ const App: React.FC = () => {
     };
     reader.onerror = () => alert(tApp.profileImportReadError);
     reader.readAsText(file);
-  };
+  }, [tApp]);
+
+  useEffect(() => {
+    if ('launchQueue' in window && 'files' in (window as any).launchQueue) {
+      (window as any).launchQueue.setConsumer(async (launchParams: any) => {
+        if (launchParams.files && launchParams.files.length > 0) {
+          for (const fileHandle of launchParams.files) {
+            const file = await fileHandle.getFile();
+            handleImportProfile(file);
+          }
+        }
+      });
+    }
+  }, [handleImportProfile]);
 
   const toggleView = () => setCurrentView(prev => prev === 'editor' ? 'library' : 'editor');
 
