@@ -1,3 +1,4 @@
+
 const CACHE_NAME = 'banana-graphic-studio-cache-v1';
 const urlsToCache = [
   '/',
@@ -13,6 +14,7 @@ const urlsToCache = [
   '/components/PreviewArea.tsx',
   '/components/TextModuleEditor.tsx',
   '/components/ProfileLibraryView.tsx',
+  '/components/VisualFontMapper.tsx',
   '/manifest.json',
   '/assets/icons/icon-192x192.png',
   '/assets/icons/icon-512x512.png',

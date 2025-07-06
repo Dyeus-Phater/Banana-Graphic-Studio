@@ -6,6 +6,7 @@ import { Button } from './ui/ButtonComponents';
 import { SelectInput, TextArea, SliderInput, TextInput, NumberInput } from './ui/InputComponents'; 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { Language } from '../App'; // Assuming Language type is exported from App.tsx
+import { VisualFontMapper } from './VisualFontMapper';
 
 // Initialize GoogleGenAI client
 let ai: GoogleGenAI | null = null;
@@ -227,6 +228,8 @@ interface ConfigPanelProps {
   generatedOpeningTag: string;
   generatedClosingTag: string;
   language: Language;
+  bitmapFontImage1: string | null;
+  bitmapFontImage2: string | null;
 }
 
 const ConfigPanel: React.FC<ConfigPanelProps> = ({ 
@@ -236,7 +239,9 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   onCurrentTagColorChange,
   generatedOpeningTag,
   generatedClosingTag,
-  language
+  language,
+  bitmapFontImage1,
+  bitmapFontImage2,
 }) => {
   const t = textModuleEditorTranslations[language];
   const customFontFileInputRef = useRef<HTMLInputElement>(null);
@@ -517,7 +522,15 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
                 containerClassName="md:col-span-2"
             />
           </div>
-          <TextArea label={t.charSequence} id={`${module.id}-charSeq`} value={module.bitmapFontSettings.characterSequence} onChange={(e) => handleStringSettingChange('characterSequence', e.target.value)} rows={2} />
+          
+          <VisualFontMapper
+            fontImageSrc={module.bitmapFontSettings.selectedFont === 'font1' ? bitmapFontImage1 : bitmapFontImage2}
+            settings={module.bitmapFontSettings}
+            sequence={module.bitmapFontSettings.characterSequence}
+            onSequenceChange={(newSequence) => handleStringSettingChange('characterSequence', newSequence)}
+            language={language}
+          />
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
             <SliderInput label={t.tileWidth} id={`${module.id}-tileWidth`} value={module.bitmapFontSettings.tileWidth} onChange={(val) => handleNumericSettingChange('tileWidth', val)} min={1} max={256} step={1} />
             <SliderInput label={t.tileHeight} id={`${module.id}-tileHeight`} value={module.bitmapFontSettings.tileHeight} onChange={(val) => handleNumericSettingChange('tileHeight', val)} min={1} max={256} step={1} />
@@ -552,6 +565,8 @@ interface TextModuleItemProps {
   generatedOpeningTag: string; 
   generatedClosingTag: string;
   language: Language;
+  bitmapFontImage1: string | null;
+  bitmapFontImage2: string | null;
 }
 
 const TextModuleItem: React.FC<TextModuleItemProps> = ({ 
@@ -564,7 +579,9 @@ const TextModuleItem: React.FC<TextModuleItemProps> = ({
   onCurrentTagColorChange, 
   generatedOpeningTag,
   generatedClosingTag,
-  language
+  language,
+  bitmapFontImage1,
+  bitmapFontImage2,
 }) => {
   const t = textModuleEditorTranslations[language];
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -788,6 +805,8 @@ const TextModuleItem: React.FC<TextModuleItemProps> = ({
           generatedOpeningTag={generatedOpeningTag} 
           generatedClosingTag={generatedClosingTag} 
           language={language}
+          bitmapFontImage1={bitmapFontImage1}
+          bitmapFontImage2={bitmapFontImage2}
         />
       )}
     </div>
@@ -800,9 +819,19 @@ interface TextModuleEditorProps {
   nextModuleNumber: number;
   onSetNextModuleNumber: (num: number) => void;
   language: Language;
+  bitmapFontImage1: string | null;
+  bitmapFontImage2: string | null;
 }
 
-export const TextModuleEditor: React.FC<TextModuleEditorProps> = ({ textModules, onUpdateTextModules, nextModuleNumber, onSetNextModuleNumber, language }) => {
+export const TextModuleEditor: React.FC<TextModuleEditorProps> = ({ 
+  textModules, 
+  onUpdateTextModules, 
+  nextModuleNumber, 
+  onSetNextModuleNumber, 
+  language,
+  bitmapFontImage1,
+  bitmapFontImage2,
+}) => {
   const t = textModuleEditorTranslations[language];
   const [currentTagColorForEditor, setCurrentTagColorForEditor] = useState<string>('#FF0000'); 
   const normalizedTagColor = normalizeHexColor(currentTagColorForEditor);
@@ -867,6 +896,8 @@ export const TextModuleEditor: React.FC<TextModuleEditorProps> = ({ textModules,
             generatedOpeningTag={editorGeneratedOpeningTag} // Corrected prop name
             generatedClosingTag={editorGeneratedClosingTag} 
             language={language}
+            bitmapFontImage1={bitmapFontImage1}
+            bitmapFontImage2={bitmapFontImage2}
           />
         ))}
       </div>

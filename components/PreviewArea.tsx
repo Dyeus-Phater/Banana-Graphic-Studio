@@ -96,15 +96,14 @@ const getCharRenderWidthBitmap = (
     fontSettings: BitmapFontSettings,
     textSettings: TextSettings, // Only for scaleX, zoomFactor
     fontImage: HTMLImageElement | undefined, 
-    glyphCache: Map<string, GlyphMetrics> | undefined,
-    settingsIdentifier: string 
+    sequenceGlyphCache: Map<string, GlyphMetrics> | undefined
 ): number => {
-    const { tileWidth, enablePixelScanning, characterSequence } = fontSettings;
+    const { tileWidth, enablePixelScanning } = fontSettings;
     const effectiveScaleX = textSettings.scaleX * textSettings.zoomFactor;
     let baseWidth = 0;
 
-    if (enablePixelScanning && glyphCache) {
-        const metrics = glyphCache.get(`${char}_${settingsIdentifier}`);
+    if (enablePixelScanning && sequenceGlyphCache) {
+        const metrics = sequenceGlyphCache.get(char);
         if (metrics) {
             if (metrics.scanWidth > 0) {
                 baseWidth = metrics.scanWidth;
@@ -117,7 +116,7 @@ const getCharRenderWidthBitmap = (
             baseWidth = (char === ' ') ? (fontImage && fontImage.naturalWidth > 0 ? tileWidth / 2 : 0) : 0;
         }
     } else { 
-        if (characterSequence.includes(char)) {
+        if (fontSettings.characterSequence.includes(char)) {
             baseWidth = tileWidth;
         } else { 
             baseWidth = (char === ' ') ? (fontImage && fontImage.naturalWidth > 0 ? tileWidth / 2 : 0) : 0;
@@ -129,7 +128,7 @@ const getCharRenderWidthBitmap = (
 const generateWrappedLinesBitmap = (
     moduleWithPotentiallyModifiedText: TextModule, 
     fontImage: HTMLImageElement | undefined, 
-    glyphCacheForFont: Map<string, GlyphMetrics> | undefined
+    sequenceGlyphCache: Map<string, GlyphMetrics> | undefined
 ): string[] => {
     const { text, textSettings, bitmapFontSettings } = moduleWithPotentiallyModifiedText;
     const { lineWrapWidth, scaleX, zoomFactor } = textSettings;
@@ -137,7 +136,6 @@ const generateWrappedLinesBitmap = (
 
     const effectiveScaleX = scaleX * zoomFactor;
     const actualPixelWrapWidth = lineWrapWidth > 0 ? lineWrapWidth * effectiveScaleX : 0;
-    const settingsIdentifier = `${bitmapFontSettings.tileWidth}x${bitmapFontSettings.tileHeight}-${bitmapFontSettings.offsetX},${bitmapFontSettings.offsetY}-${bitmapFontSettings.separationX},${bitmapFontSettings.separationY}`;
 
     if (actualPixelWrapWidth <= 0) {
         return text.split('\\n'); 
@@ -163,7 +161,7 @@ const generateWrappedLinesBitmap = (
             const word = words[i];
             if (word === "") { 
                 if (currentLineText !== "" && !currentLineText.endsWith(" ")) { 
-                    const spaceGlyphWidth = getCharRenderWidthBitmap(' ', bitmapFontSettings, textSettings, fontImage, glyphCacheForFont, settingsIdentifier);
+                    const spaceGlyphWidth = getCharRenderWidthBitmap(' ', bitmapFontSettings, textSettings, fontImage, sequenceGlyphCache);
                     if (currentLineWidthPixels + spaceGlyphWidth + scaledInterCharSpacing <= actualPixelWrapWidth || currentLineText === "") {
                         currentLineText += " ";
                         currentLineWidthPixels += spaceGlyphWidth + scaledInterCharSpacing;
@@ -183,7 +181,7 @@ const generateWrappedLinesBitmap = (
                 if (tagMatch && tagMatch.index === 0) {
                     tempWordParseIndex += tagMatch[0].length;
                 } else {
-                    wordVisualWidth += getCharRenderWidthBitmap(word[tempWordParseIndex], bitmapFontSettings, textSettings, fontImage, glyphCacheForFont, settingsIdentifier);
+                    wordVisualWidth += getCharRenderWidthBitmap(word[tempWordParseIndex], bitmapFontSettings, textSettings, fontImage, sequenceGlyphCache);
                     numVisibleCharsInWord++;
                     tempWordParseIndex++;
                 }
@@ -195,7 +193,7 @@ const generateWrappedLinesBitmap = (
             if (currentLineText === "") {
                 currentLineText = word; currentLineWidthPixels = wordVisualWidth;
             } else {
-                const spaceGlyphWidth = getCharRenderWidthBitmap(' ', bitmapFontSettings, textSettings, fontImage, glyphCacheForFont, settingsIdentifier);
+                const spaceGlyphWidth = getCharRenderWidthBitmap(' ', bitmapFontSettings, textSettings, fontImage, sequenceGlyphCache);
                 const widthWithSpaceAndWord = currentLineWidthPixels + spaceGlyphWidth + scaledInterCharSpacing + wordVisualWidth;
 
                 if (widthWithSpaceAndWord <= actualPixelWrapWidth) {
@@ -324,7 +322,7 @@ const generateWrappedLinesSystem = (
 const calculateModuleBounds = (
     moduleWithPotentiallyModifiedText: TextModule, 
     fontImage: HTMLImageElement | undefined, // For bitmap
-    glyphCacheForFont: Map<string, GlyphMetrics> | undefined, // For bitmap
+    fontLevelGlyphCache: Map<string, Map<string, GlyphMetrics>> | undefined, // For bitmap
     measureCtx: CanvasRenderingContext2D | null // For system font
 ): { x: number, y: number, width: number, height: number, lines: string[], maxUnscaledLineWidth: number } | null => {
     if (!moduleWithPotentiallyModifiedText.text) return null;
@@ -356,10 +354,13 @@ const calculateModuleBounds = (
         }
 
     } else if (renderMode === 'bitmap') {
-        lines = generateWrappedLinesBitmap(moduleWithPotentiallyModifiedText, fontImage, glyphCacheForFont);
+        const settingsIdentifier = `${bitmapFontSettings.tileWidth}x${bitmapFontSettings.tileHeight}-${bitmapFontSettings.offsetX},${bitmapFontSettings.offsetY}-${bitmapFontSettings.separationX},${bitmapFontSettings.separationY}`;
+        const sequenceIdentifier = `${settingsIdentifier}_${bitmapFontSettings.characterSequence}`;
+        const sequenceGlyphCache = fontLevelGlyphCache?.get(sequenceIdentifier);
+
+        lines = generateWrappedLinesBitmap(moduleWithPotentiallyModifiedText, fontImage, sequenceGlyphCache);
         if (lines.length === 0) return null;
 
-        const settingsIdentifier = `${bitmapFontSettings.tileWidth}x${bitmapFontSettings.tileHeight}-${bitmapFontSettings.offsetX},${bitmapFontSettings.offsetY}-${bitmapFontSettings.separationX},${bitmapFontSettings.separationY}`;
         const scaledInterCharSpacing = bitmapFontSettings.characterSpacing * effectiveScaleX;
         
         for (const line of lines) {
@@ -371,7 +372,7 @@ const calculateModuleBounds = (
                 if (tagMatch?.index === 0) {
                     tempLineParseIndexForWidth += tagMatch[0].length;
                 } else {
-                    currentLineVisualWidth += getCharRenderWidthBitmap(line[tempLineParseIndexForWidth], bitmapFontSettings, textSettings, fontImage, glyphCacheForFont, settingsIdentifier);
+                    currentLineVisualWidth += getCharRenderWidthBitmap(line[tempLineParseIndexForWidth], bitmapFontSettings, textSettings, fontImage, sequenceGlyphCache);
                     visibleCharsInLineWidth++;
                     tempLineParseIndexForWidth++;
                 }
@@ -441,7 +442,8 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   const [processedBitmapFont, setProcessedBitmapFont] = useState<HTMLImageElement | null>(null); // Font 1
   const [processedBitmapFont2, setProcessedBitmapFont2] = useState<HTMLImageElement | null>(null); // Font 2
   
-  const [glyphMetricsCache, setGlyphMetricsCache] = useState<Map<string, Map<string, GlyphMetrics>>>(new Map());
+  // fontSrc -> sequenceIdentifier -> char -> metrics
+  const [glyphMetricsCache, setGlyphMetricsCache] = useState<Map<string, Map<string, Map<string, GlyphMetrics>>>>(new Map());
 
   const tempColorCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const tempColorCtxRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -660,23 +662,27 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     }
     
     const fontCacheKey = fontImageToScan.src;
-    const existingCharCacheForFont = glyphMetricsCache.get(fontCacheKey) || new Map<string, GlyphMetrics>();
-    let charCacheForFontUpdated = false;
+    const fontLevelCache = glyphMetricsCache.get(fontCacheKey) || new Map<string, Map<string, GlyphMetrics>>();
+    let cacheNeedsUpdate = false;
 
     modulesUsingThisFont.forEach(module => {
-      // Only scan for bitmap modules
       if (module.textSettings.renderMode !== 'bitmap') return;
 
       const { characterSequence, tileWidth, tileHeight, offsetX, offsetY, separationX, separationY, enablePixelScanning } = module.bitmapFontSettings;
       const settingsIdentifier = `${tileWidth}x${tileHeight}-${offsetX},${offsetY}-${separationX},${separationY}`;
+      const sequenceIdentifier = `${settingsIdentifier}_${characterSequence}`;
 
       if (!enablePixelScanning || tileWidth <= 0 || tileHeight <= 0) return; 
 
-      for (const char of characterSequence) {
-        const charMetricKey = `${char}_${settingsIdentifier}`;
-        if (existingCharCacheForFont.has(charMetricKey)) continue;
+      if (fontLevelCache.has(sequenceIdentifier)) {
+        return; // Already cached for this exact sequence and settings.
+      }
 
-        charCacheForFontUpdated = true;
+      cacheNeedsUpdate = true;
+      const newCharMetricsMap = new Map<string, GlyphMetrics>();
+      const uniqueChars = new Set(characterSequence.split(''));
+
+      for (const char of uniqueChars) {
         const charIdx = characterSequence.indexOf(char); 
         const charsPerRowBitmap = Math.max(1, Math.floor((fontImageToScan.naturalWidth - offsetX + separationX) / (tileWidth + separationX)));
         const tileCol = charIdx % charsPerRowBitmap;
@@ -687,7 +693,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
         if (sX_tile + tileWidth > fontImageToScan.naturalWidth || sY_tile + tileHeight > fontImageToScan.naturalHeight) {
           console.warn(`Char '${char}' tile for font ${fontCacheKey.substring(fontCacheKey.length - 20)} [${sX_tile},${sY_tile} ${tileWidth}x${tileHeight}] out of bounds.`);
-          existingCharCacheForFont.set(charMetricKey, { scanX: 0, scanWidth: tileWidth, tileX: sX_tile, tileY: sY_tile, tileW: tileWidth, tileH: tileHeight }); 
+          newCharMetricsMap.set(char, { scanX: 0, scanWidth: tileWidth, tileX: sX_tile, tileY: sY_tile, tileW: tileWidth, tileH: tileHeight }); 
           continue;
         }
 
@@ -707,16 +713,18 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
             for (let y = 0; y < tileHeight; y++) for (let x = 0; x < tileWidth; x++) if (data[(y * tileWidth + x) * 4 + 3] > 0) { if (x < minVisibleX) minVisibleX = x; if (x > maxVisibleX) maxVisibleX = x; }
         } catch (e) { console.error(`Error scanning glyph ${char} for font ${fontCacheKey.substring(fontCacheKey.length-20)}:`, e); minVisibleX = 0; maxVisibleX = tileWidth -1; }
         
-        existingCharCacheForFont.set(charMetricKey, { 
+        newCharMetricsMap.set(char, { 
             scanX: (maxVisibleX >= minVisibleX) ? minVisibleX : 0, 
             scanWidth: (maxVisibleX >= minVisibleX) ? (maxVisibleX - minVisibleX + 1) : 0, 
             tileX: sX_tile, tileY: sY_tile, tileW: tileWidth, tileH: tileHeight 
         });
       }
+      fontLevelCache.set(sequenceIdentifier, newCharMetricsMap);
     });
 
-    if (charCacheForFontUpdated || !glyphMetricsCache.has(fontCacheKey)) {
-        setGlyphMetricsCache(prevCache => new Map(prevCache).set(fontCacheKey, existingCharCacheForFont));
+    if (cacheNeedsUpdate) {
+        glyphMetricsCache.set(fontCacheKey, fontLevelCache);
+        setGlyphMetricsCache(new Map(glyphMetricsCache));
     }
   }, [glyphMetricsCache]);
 
@@ -789,9 +797,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         const currentRawFontImage = moduleForPreview.bitmapFontSettings.selectedFont === 'font1' ? loadedImages.bitmapFont : loadedImages.bitmapFont2;
         const currentProcessedFont = moduleForPreview.bitmapFontSettings.selectedFont === 'font1' ? processedBitmapFont : processedBitmapFont2;
         const imageSourceForBitmapOps = currentProcessedFont || currentRawFontImage;
-        const fontMetricsSpecificCache = imageSourceForBitmapOps ? glyphMetricsCache.get(imageSourceForBitmapOps.src) : undefined;
+        const fontLevelCache = imageSourceForBitmapOps ? glyphMetricsCache.get(imageSourceForBitmapOps.src) : undefined;
         
-        const boundsData = calculateModuleBounds(moduleForPreview, imageSourceForBitmapOps, fontMetricsSpecificCache, measureCtx);
+        const boundsData = calculateModuleBounds(moduleForPreview, imageSourceForBitmapOps, fontLevelCache, measureCtx);
         if (!boundsData) return;
         const { x: blockLeftX, y: blockTopY, lines, maxUnscaledLineWidth } = boundsData;
 
@@ -874,6 +882,8 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
             const { characterSequence, tileWidth, tileHeight, characterSpacing, baselineX, baselineY, enablePixelScanning } = fontSettings;
             const scaledInterCharSpacing = characterSpacing * effectiveScaleX;
             const settingsIdentifier = `${fontSettings.tileWidth}x${fontSettings.tileHeight}-${fontSettings.offsetX},${fontSettings.offsetY}-${fontSettings.separationX},${fontSettings.separationY}`;
+            const sequenceIdentifier = `${settingsIdentifier}_${characterSequence}`;
+            const sequenceMetricsCache = fontLevelCache?.get(sequenceIdentifier);
             
             let currentDrawingY = blockTopY; 
             const scaledBitmapLineHeight = tileHeight * effectiveScaleY * lineHeight;
@@ -886,7 +896,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
                   const tagMatch = line.substring(tempLineParseIndexForWidth).match(/^<C#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})>|<\/C>/i);
                   if (tagMatch?.index === 0) tempLineParseIndexForWidth += tagMatch[0].length;
                   else { 
-                      unscaledLineVisualWidth += getCharRenderWidthBitmap(line[tempLineParseIndexForWidth], fontSettings, textSettings, imageSourceForBitmapOps, fontMetricsSpecificCache, settingsIdentifier) / effectiveScaleX; 
+                      unscaledLineVisualWidth += getCharRenderWidthBitmap(line[tempLineParseIndexForWidth], fontSettings, textSettings, imageSourceForBitmapOps, sequenceMetricsCache) / effectiveScaleX; 
                       visibleCharsInLineWidth++; 
                       tempLineParseIndexForWidth++; 
                   }
@@ -927,8 +937,8 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
                     charIndexInLine++; continue;
                 }
 
-                if (enablePixelScanning && fontMetricsSpecificCache) {
-                  const metrics = fontMetricsSpecificCache.get(`${char}_${settingsIdentifier}`);
+                if (enablePixelScanning && sequenceMetricsCache) {
+                  const metrics = sequenceMetricsCache.get(char);
                   if (metrics) {
                     sX_draw = metrics.tileX + metrics.scanX; sY_draw = metrics.tileY;
                     sWidth_draw = metrics.scanWidth; sHeight_draw = metrics.tileH;
@@ -1101,9 +1111,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         const currentRawFontImage = moduleForBounds.bitmapFontSettings.selectedFont === 'font1' ? loadedImages.bitmapFont : loadedImages.bitmapFont2;
         const currentProcessedFont = moduleForBounds.bitmapFontSettings.selectedFont === 'font1' ? processedBitmapFont : processedBitmapFont2;
         const imageSourceForBounds = currentProcessedFont || currentRawFontImage;
-        const fontMetricsForBounds = imageSourceForBounds ? glyphMetricsCache.get(imageSourceForBounds.src) : undefined;
+        const fontLevelCache = imageSourceForBounds ? glyphMetricsCache.get(imageSourceForBounds.src) : undefined;
 
-        const bounds = calculateModuleBounds(moduleForBounds, imageSourceForBounds, fontMetricsForBounds, measureCtx);
+        const bounds = calculateModuleBounds(moduleForBounds, imageSourceForBounds, fontLevelCache, measureCtx);
 
 
         if (bounds) {

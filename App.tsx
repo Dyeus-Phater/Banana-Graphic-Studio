@@ -725,6 +725,8 @@ const App: React.FC = () => {
               nextModuleNumber={nextModuleNumber}
               onSetNextModuleNumber={setNextModuleNumber}
               language={language}
+              bitmapFontImage1={activeProfile.bitmapFontImage}
+              bitmapFontImage2={activeProfile.bitmapFontImage2}
             />
           </>
         ) : (
