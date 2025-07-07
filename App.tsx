@@ -8,7 +8,7 @@ import { HeaderControls } from './components/HeaderControls';
 import { PreviewArea } from './components/PreviewArea';
 import { TextModuleEditor } from './components/TextModuleEditor';
 import { ProfileLibraryView } from './components/ProfileLibraryView';
-import { DEFAULT_TEXT_SETTINGS, DEFAULT_BITMAP_FONT_SETTINGS, generateId } from './constants';
+import { DEFAULT_TEXT_SETTINGS, DEFAULT_BITMAP_FONT_SETTINGS, generateId, COMMON_FONT_FAMILIES } from './constants';
 
 const ACTIVE_PROFILE_STORAGE_KEY = 'romGraphicsEditorActiveProfile_v2';
 const NEXT_MODULE_NUM_STORAGE_KEY = 'romGraphicsEditorNextModuleNum_v2';
@@ -384,6 +384,34 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const handleClearAllFiles = () => {
+    setActiveProfile(p => {
+        const newTextModules = p.textModules.map(module => {
+            if (module.textSettings.customFontFamilyName) {
+                return {
+                    ...module,
+                    textSettings: {
+                        ...module.textSettings,
+                        customFontFileName: null,
+                        customFontFamilyName: null,
+                        fontFamily: COMMON_FONT_FAMILIES[0].value
+                    }
+                };
+            }
+            return module;
+        });
+
+        return {
+            ...p,
+            originalImage: null,
+            editableImage: null,
+            bitmapFontImage: null,
+            bitmapFontImage2: null,
+            textModules: newTextModules
+        };
+    });
+  };
+  
   const handleSavePreview = async () => {
     const canvas = document.querySelector('canvas');
     if (!canvas) {
@@ -715,6 +743,7 @@ const App: React.FC = () => {
               onUpdateProfileImage={handleUpdateActiveProfileImage}
               onUpdateProfileFontSettings={handleUpdateProfileFontSettings}
               onUpdateModulePosition={handleUpdateModulePosition}
+              onClearAllFiles={handleClearAllFiles}
               canvasWidth={512}
               canvasHeight={384}
               language={language}

@@ -17,6 +17,7 @@ interface PreviewAreaProps {
     >>
   ) => void;
   onUpdateModulePosition: (moduleId: string, newPosition: { x: number, y: number }) => void;
+  onClearAllFiles: () => void;
   canvasWidth?: number;
   canvasHeight?: number;
   language: Language;
@@ -40,6 +41,7 @@ const previewAreaTranslations = {
     softLabel: "Soft",
     uploadOriginalPlaceholder: "Upload Original Image",
     uploadEditablePlaceholder: "Upload Editable Image",
+    clearAllFilesButton: "Clear all uploaded files",
   },
   pt: {
     previewTitle: "Prévia",
@@ -58,6 +60,7 @@ const previewAreaTranslations = {
     softLabel: "Suave",
     uploadOriginalPlaceholder: "Carregar Imagem Original",
     uploadEditablePlaceholder: "Carregar Imagem Editável",
+    clearAllFilesButton: "Limpar todos os arquivos carregados",
   }
 };
 
@@ -426,6 +429,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   onUpdateProfileImage,
   onUpdateProfileFontSettings,
   onUpdateModulePosition,
+  onClearAllFiles,
   canvasWidth = 512, 
   canvasHeight = 384,
   language,
@@ -1186,7 +1190,19 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   return (
     <div className="w-2/5 p-4 flex flex-col bg-white shadow-lg rounded-lg m-2 sticky top-[84px] max-h-[calc(100vh-100px)] overflow-y-auto self-start">
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-xl font-semibold text-gray-700">{t.previewTitle}</h2>
+        <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-gray-700">{t.previewTitle}</h2>
+            <Button
+                onClick={onClearAllFiles}
+                variant="ghost"
+                size="sm"
+                className="text-red-600 hover:bg-red-50 p-1.5"
+                title={t.clearAllFilesButton}
+                aria-label={t.clearAllFilesButton}
+            >
+                {ICONS.trash}
+            </Button>
+        </div>
         <Button onClick={() => setShowOriginal(!showOriginal)} leftIcon={ICONS.eye} variant="ghost">
           {showOriginal ? t.showEditable : t.showOriginal}
         </Button>
